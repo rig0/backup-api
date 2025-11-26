@@ -82,8 +82,8 @@ machines:
     ssh_key_path: "/home/user/.ssh/cloud-server-1"
     backup_type: "dockge"
     retention_days: 90
-    backup_dir: "/tmp/stack-backup"
-    nas_directory: "/mnt/drive_0/backups/dockge/cloud-server-1""
+    remote_tmp_dir: "/tmp/stack-backup"
+    local_backup_dir: "/mnt/drive_0/backups/dockge/cloud-server-1"
 ```
 
 Or add machines via API:
@@ -101,8 +101,8 @@ curl -X POST http://localhost:7792/api/machines \
     "ssh_key_path": "/home/user/.ssh/cloud-server-1",
     "backup_type": "dockge",
     "retention_days": 90,
-    "backup_dir": "/tmp/stack-backup"",
-    "nas_directory": "/mnt/drive_0/backups/dockge/cloud-server-1""
+    "remote_tmp_dir": "/tmp/stack-backup",
+    "local_backup_dir": "/mnt/drive_0/backups/dockge/cloud-server-1"
   }'
 ```
 

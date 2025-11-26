@@ -191,8 +191,8 @@ def add_machine():
         "ssh_key_path": "/root/.ssh/cloud-server-1",
         "backup_type": "dockge",
         "retention_days": 30,
-        "backup_dir": "/home/rambo/dev-stack",
-        "nas_directory": "/mnt/nasty/Backups/Dockge/cloud-server-1"
+        "remote_tmp_dir": "/home/rambo/dev-stack",
+        "local_backup_dir": "/mnt/nasty/Backups/Dockge/cloud-server-1"
     }
     """
     try:
@@ -208,7 +208,7 @@ def add_machine():
             "host",
             "ssh_user",
             "backup_type",
-            "nas_directory",
+            "local_backup_dir",
         ]
         missing_fields = [field for field in required_fields if field not in data]
 

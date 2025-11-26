@@ -49,48 +49,48 @@ class DockgeBackup:
             # Create timestamp
             timestamp = datetime.now().strftime("%Y_%j_%H%M%S")
 
-            # Get backup_dir from machine config or use default
-            backup_dir = machine_config.get("backup_dir", "/tmp/dockge-backup")
+            # Get remote_tmp_dir from machine config or use default
+            remote_tmp_dir = machine_config.get("remote_tmp_dir", "/tmp/dockge-backup")
 
             # Create backup directory on remote machine
-            success, message = self._create_remote_backup_dir(ssh_client, backup_dir)
+            success, message = self._create_remote_backup_dir(ssh_client, remote_tmp_dir)
             if not success:
                 return False, message
 
             # Backup stacks
-            success, message = self._backup_stacks(ssh_client, backup_dir, timestamp)
+            success, message = self._backup_stacks(ssh_client, remote_tmp_dir, timestamp)
             if not success:
                 return False, message
 
             # Backup dockge directory
-            success, message = self._backup_dockge(ssh_client, backup_dir, timestamp)
+            success, message = self._backup_dockge(ssh_client, remote_tmp_dir, timestamp)
             if not success:
                 return False, message
 
             # Download backups to NAS
-            nas_directory = machine_config.get("nas_directory")
-            if not nas_directory:
-                return False, "nas_directory not configured for machine"
+            local_backup_dir = machine_config.get("local_backup_dir")
+            if not local_backup_dir:
+                return False, "local_backup_dir not configured for machine"
 
             success, message = self._download_backups(
-                ssh_client, backup_dir, nas_directory
+                ssh_client, remote_tmp_dir, local_backup_dir
             )
             if not success:
                 return False, message
 
             # Verify backups
-            success, message = self._verify_backups(nas_directory)
+            success, message = self._verify_backups(local_backup_dir)
             if not success:
                 return False, message
 
             # Cleanup remote machine
-            success, message = self._cleanup_remote(ssh_client, backup_dir)
+            success, message = self._cleanup_remote(ssh_client, remote_tmp_dir)
             if not success:
                 logger.warning(f"Cleanup warning: {message}")
 
             # Cleanup old backups on NAS
             retention_days = machine_config.get("retention_days", 30)
-            self._cleanup_old_backups(nas_directory, keep=retention_days)
+            self._cleanup_old_backups(local_backup_dir, keep=retention_days)
 
             logger.info(f"Dockge backup completed successfully for {machine_id}")
             return True, f"Backup completed successfully for {machine_id}"
@@ -200,24 +200,24 @@ class DockgeBackup:
         return True, "Backed up Dockge directory"
 
     def _download_backups(
-        self, ssh_client: SSHClient, remote_backup_dir: str, nas_directory: str
+        self, ssh_client: SSHClient, remote_backup_dir: str, local_backup_dir: str
     ) -> Tuple[bool, str]:
         """Download backups from remote machine to NAS via SFTP."""
-        logger.info(f"Downloading backups from {remote_backup_dir} to {nas_directory}")
+        logger.info(f"Downloading backups from {remote_backup_dir} to {local_backup_dir}")
 
         # Create local directory if it doesn't exist
-        os.makedirs(nas_directory, exist_ok=True)
+        os.makedirs(local_backup_dir, exist_ok=True)
 
         # Download entire backup directory
-        success = ssh_client.download_directory(remote_backup_dir, nas_directory)
+        success = ssh_client.download_directory(remote_backup_dir, local_backup_dir)
 
         if success:
             # Set permissions (770)
             try:
                 import subprocess
 
-                subprocess.run(["chmod", "-R", "770", nas_directory], check=True)
-                logger.info(f"Set permissions on {nas_directory}")
+                subprocess.run(["chmod", "-R", "770", local_backup_dir], check=True)
+                logger.info(f"Set permissions on {local_backup_dir}")
             except Exception as e:
                 logger.warning(f"Failed to set permissions: {str(e)}")
 
@@ -225,13 +225,13 @@ class DockgeBackup:
         else:
             return False, "Failed to download backups"
 
-    def _verify_backups(self, nas_directory: str) -> Tuple[bool, str]:
+    def _verify_backups(self, local_backup_dir: str) -> Tuple[bool, str]:
         """Verify downloaded backups exist and have reasonable size."""
-        logger.info(f"Verifying backups in {nas_directory}")
+        logger.info(f"Verifying backups in {local_backup_dir}")
 
         # Find all .tar.gz files
         backup_files = glob.glob(
-            os.path.join(nas_directory, "**/*.tar.gz"), recursive=True
+            os.path.join(local_backup_dir, "**/*.tar.gz"), recursive=True
         )
 
         if not backup_files:
@@ -250,32 +250,34 @@ class DockgeBackup:
 
         return True, f"Verified {len(backup_files)} backup files"
 
-    def _cleanup_remote(self, ssh_client: SSHClient, backup_dir: str) -> Tuple[bool, str]:
+    def _cleanup_remote(
+        self, ssh_client: SSHClient, remote_tmp_dir: str
+    ) -> Tuple[bool, str]:
         """Delete backup directory on remote machine."""
-        logger.info(f"Cleaning up remote backup directory: {backup_dir}")
+        logger.info(f"Cleaning up remote backup directory: {remote_tmp_dir}")
 
-        success = ssh_client.delete_remote_directory(backup_dir)
+        success = ssh_client.delete_remote_directory(remote_tmp_dir)
 
         if success:
             return True, "Remote cleanup successful"
         else:
             return False, "Failed to cleanup remote backup directory"
 
-    def _cleanup_old_backups(self, nas_directory: str, keep: int = 30):
+    def _cleanup_old_backups(self, local_backup_dir: str, keep: int = 30):
         """
         Keep only the most recent N backups in each subdirectory.
 
         Args:
-            nas_directory: Root directory containing backups
+            local_backup_dir: Root directory containing backups
             keep: Number of backups to keep (default 30)
         """
         logger.info(
-            f"Cleaning up old backups in {nas_directory}, keeping {keep} most recent"
+            f"Cleaning up old backups in {local_backup_dir}, keeping {keep} most recent"
         )
 
         try:
             # Walk through all subdirectories
-            for root, dirs, files in os.walk(nas_directory):
+            for root, dirs, files in os.walk(local_backup_dir):
                 # Find all .tar.gz files in this directory
                 backup_files = [f for f in files if f.endswith(".tar.gz")]
 
