@@ -1,6 +1,15 @@
+<div align="center">
+
 # Backup-API
 
-A pull-based backup system that runs on your NAS and initiates SSH connections to remote machines to perform backups. Designed for integration with n8n for centralized scheduling and monitoring.
+![GitHub last commit](https://img.shields.io/github/last-commit/rig0/backup-api?style=for-the-badge)
+![Release](https://img.shields.io/github/v/release/rig0/backup-api?style=for-the-badge)
+![n8n](https://img.shields.io/badge/n8n-EA4B71?style=for-the-badge&logo=n8n&logoColor=white)
+
+**A pull-based backup system that runs on your NAS and initiates SSH connections to remote machines to perform backups. Designed for integration with n8n for centralized scheduling and monitoring.**
+
+</div>
+
 
 ## Architecture
 
