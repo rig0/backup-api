@@ -1,146 +1,286 @@
-from flask import Flask, request, jsonify
-import subprocess
-import os, glob
-from dotenv import load_dotenv
+"""Backup API - Pull-based backup system with n8n integration."""
 
-# Load environment variables from .env file
+from flask import Flask, request, jsonify
+import os
+import logging
+import importlib
+from dotenv import load_dotenv
+from utils.config import ConfigManager
+from logging.handlers import RotatingFileHandler
+
+# Load environment variables
 load_dotenv()
+
+# Logging Configuration
+
+# Create logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Create formatter
+formatter = logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(module)s: %(message)s",
+    datefmt="%m/%d/%Y %H:%M:%S",
+)
+
+# Console handler
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+logger.addHandler(console_handler)
+
+# Rotating file handler
+file_handler = RotatingFileHandler(
+    "backup-api.log",
+    maxBytes=3 * 1024 * 1024,  # 3 MB per file
+    backupCount=3,  # Keep 3 backups
+)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 app = Flask(__name__)
 
-# Get the token from the environment variable
-AUTH_TOKEN = os.getenv('AUTH_TOKEN')
+# Initialize configuration manager
+config_manager = ConfigManager('machines.yaml')
 
-# Authorization decorator
-def token_required(f):
+# Get API token from environment
+API_TOKEN = os.getenv('API_TOKEN')
+
+if not API_TOKEN:
+    logger.error("API_TOKEN not set in environment variables")
+    raise ValueError("API_TOKEN must be set in .env file")
+
+
+# Bearer token authentication decorator
+def require_bearer_token(f):
+    """Decorator to require bearer token authentication."""
     def wrapper(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
-        if not auth_header or auth_header.split(" ")[1] != AUTH_TOKEN:
-            return jsonify({'message': 'Unauthorized'}), 401
+
+        if not auth_header:
+            logger.warning("Missing Authorization header")
+            return jsonify({'error': 'Missing Authorization header'}), 401
+
+        if not auth_header.startswith('Bearer '):
+            logger.warning("Invalid Authorization header format")
+            return jsonify({'error': 'Invalid Authorization header format'}), 401
+
+        token = auth_header.replace('Bearer ', '')
+
+        if token != API_TOKEN:
+            logger.warning(f"Invalid token attempt from {request.remote_addr}")
+            return jsonify({'error': 'Invalid token'}), 401
+
         return f(*args, **kwargs)
+
     wrapper.__name__ = f.__name__
     return wrapper
 
-def add_host_to_known_hosts(remote_host, ssh_port=22):
-    """Use ssh-keyscan to add the host key (optionally on a custom port) to known_hosts."""
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint (no auth required)."""
+    return jsonify({'status': 'healthy', 'service': 'backup-api'}), 200
+
+
+@app.route('/api/backup', methods=['POST'])
+@require_bearer_token
+def trigger_backup():
+    """
+    Trigger a backup for a specific machine.
+
+    Request body:
+    {
+        "machine_id": "cloud-server-1"
+    }
+    """
     try:
-        # Use ssh-keyscan to retrieve the SSH key from the remote host
-        result = subprocess.run(
-            ['ssh-keyscan', '-p', str(ssh_port), remote_host],
-            capture_output=True,
-            text=True
-        )
+        data = request.get_json()
 
-        # Check if the command was successful
-        if result.returncode == 0:
-            # Append the key to the known_hosts file
-            known_hosts_path = os.path.expanduser('~/.ssh/known_hosts')
-            os.makedirs(os.path.dirname(known_hosts_path), exist_ok=True)
-            with open(known_hosts_path, 'a') as f:
-                f.write(result.stdout)
-            return True
-        else:
-            return False
-    except Exception as e:
-        print(f"Error adding host to known_hosts: {e}")
-        return False
+        if not data or 'machine_id' not in data:
+            return jsonify({'error': 'machine_id is required'}), 400
 
-def cleanup_backups(root_dir, keep=7):
-    """
-    Keeps only the most recent N (.tar.gz) backups
-    inside Gitea and Dockge structure.
-    """
-    
-    # --- Dockge backups (one per server) ---
-    dockge_root = os.path.join(root_dir, "Dockge")
-    if os.path.isdir(dockge_root):
-        for server_dir in os.listdir(dockge_root):
-            full_path = os.path.join(dockge_root, server_dir)
-            if os.path.isdir(full_path):
-                # apply cleanup to this folder
-                _cleanup_dir(full_path, keep)
+        machine_id = data['machine_id']
+        logger.info(f"Backup requested for machine: {machine_id}")
 
-                # apply cleanup to any subfolders (optional)
-                for subfolder in os.listdir(full_path):
-                    subfolder_path = os.path.join(full_path, subfolder)
-                    if os.path.isdir(subfolder_path):
-                        _cleanup_dir(subfolder_path, keep)
+        # Get machine configuration
+        machine_config = config_manager.get_machine(machine_id)
 
+        if not machine_config:
+            logger.error(f"Machine not found: {machine_id}")
+            return jsonify({'error': f'Machine {machine_id} not found'}), 404
 
+        # Get backup type
+        backup_type = machine_config.get('backup_type')
 
-def _cleanup_dir(dir_path, keep):
-    # Only look at .tar.gz files directly inside this folder
-    files = glob.glob(os.path.join(dir_path, "*.tar.gz"))
-    if len(files) <= keep:
-        return
+        if not backup_type:
+            logger.error(f"backup_type not configured for machine {machine_id}")
+            return jsonify({'error': 'backup_type not configured for machine'}), 400
 
-    # Sort by filename (assuming filenames include date)
-    files.sort(reverse=True)
-    old_files = files[keep:]
-
-    for f in old_files:
+        # Dynamically load backup module
         try:
-            os.remove(f)
-            print(f"Deleted {f}")
-        except Exception as e:
-            print(f"Failed to delete {f}: {e}")
+            module = importlib.import_module(f'modules.{backup_type}')
+            backup_class_name = f'{backup_type.capitalize()}Backup'
+            backup_class = getattr(module, backup_class_name)
+        except (ImportError, AttributeError) as e:
+            logger.error(f"Failed to load backup module '{backup_type}': {str(e)}")
+            return jsonify({'error': f'Invalid backup_type: {backup_type}'}), 400
 
+        # Execute backup
+        backup_instance = backup_class()
+        success, message = backup_instance.execute_backup(machine_config)
 
-
-def run_rsync(remote_user, remote_host, remote_folder, local_folder, ssh_port=22):
-    # Construct the rsync command
-    ssh_command = ['ssh', '-p', str(ssh_port)]
-    rsync_command = [
-        'rsync',
-        '-avz',
-        '-e',
-        ' '.join(ssh_command),
-        f'{remote_user}@{remote_host}:{remote_folder}',
-        local_folder
-    ]
-    try:
-        # Run the rsync command
-        result = subprocess.run(rsync_command, capture_output=True, text=True)
-        
-        if result.returncode == 0:
-            # change permissions to allow group rwx
-            subprocess.run(['chmod', '-R', '770', local_folder], capture_output=True, text=True)
-
-            # run cleanup
-            BACKUP_DIR = os.getenv('BACKUP_DIR')
-            if BACKUP_DIR:
-                cleanup_backups(BACKUP_DIR, keep=7)
-
-
-            return jsonify({'message': 'Backup completed successfully', 'output': result.stdout}), 200
+        if success:
+            logger.info(f"Backup successful for {machine_id}: {message}")
+            return jsonify({'success': True, 'message': message}), 200
         else:
-            return jsonify({'message': 'Backup failed', 'error': result.stderr}), 500
+            logger.error(f"Backup failed for {machine_id}: {message}")
+            return jsonify({'success': False, 'error': message}), 500
+
     except Exception as e:
-        return jsonify({'message': 'An error occurred', 'error': str(e)}), 500
+        logger.error(f"Unexpected error during backup: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 
-
-@app.route('/backup', methods=['POST'])
-@token_required
-def backup():
-    data = request.get_json()
-    remote_user = data.get('remote_user')
-    remote_host = data.get('remote_host')
-    remote_folder = data.get('remote_folder')
-    local_folder = data.get('local_folder')
-    ssh_port = data.get('ssh_port', 22)
-
+@app.route('/api/machines', methods=['GET'])
+@require_bearer_token
+def get_machines():
+    """Get all machine configurations."""
     try:
-        ssh_port = int(ssh_port)
-    except (TypeError, ValueError):
-        return jsonify({'message': 'Invalid ssh_port value'}), 400
+        machines = config_manager.get_all_machines()
+        logger.info(f"Retrieved {len(machines)} machines")
+        return jsonify({'machines': machines}), 200
 
-    # Add the remote host's key to known_hosts
-    if not add_host_to_known_hosts(remote_host, ssh_port=ssh_port):
-        return jsonify({'message': 'Failed to add host to known_hosts'}), 500
+    except Exception as e:
+        logger.error(f"Failed to get machines: {str(e)}")
+        return jsonify({'error': 'Failed to retrieve machines'}), 500
 
-    rsync_result = run_rsync(remote_user, remote_host, remote_folder, local_folder, ssh_port=ssh_port)
-    return rsync_result
+
+@app.route('/api/machines/<machine_id>', methods=['GET'])
+@require_bearer_token
+def get_machine(machine_id):
+    """Get a specific machine configuration."""
+    try:
+        machine = config_manager.get_machine(machine_id)
+
+        if not machine:
+            return jsonify({'error': f'Machine {machine_id} not found'}), 404
+
+        return jsonify({'machine': machine}), 200
+
+    except Exception as e:
+        logger.error(f"Failed to get machine {machine_id}: {str(e)}")
+        return jsonify({'error': 'Failed to retrieve machine'}), 500
+
+
+@app.route('/api/machines', methods=['POST'])
+@require_bearer_token
+def add_machine():
+    """
+    Add a new machine configuration.
+
+    Request body:
+    {
+        "id": "cloud-server-1",
+        "name": "Cloud Server 1",
+        "host": "203.0.113.45",
+        "ssh_port": 22,
+        "ssh_user": "root",
+        "ssh_key_path": "/root/.ssh/cloud-server-1",
+        "backup_type": "dockge",
+        "retention_days": 30,
+        "backup_dir": "/home/rambo/dev-stack",
+        "nas_directory": "/mnt/nasty/Backups/Dockge/cloud-server-1"
+    }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+
+        # Validate required fields
+        required_fields = ['id', 'name', 'host', 'ssh_user', 'backup_type', 'nas_directory']
+        missing_fields = [field for field in required_fields if field not in data]
+
+        if missing_fields:
+            return jsonify({'error': f'Missing required fields: {", ".join(missing_fields)}'}), 400
+
+        # Add machine
+        success = config_manager.add_machine(data)
+
+        if success:
+            logger.info(f"Added machine: {data['id']}")
+            return jsonify({'success': True, 'message': f'Machine {data["id"]} added successfully'}), 201
+        else:
+            return jsonify({'error': 'Failed to add machine (may already exist)'}), 400
+
+    except Exception as e:
+        logger.error(f"Failed to add machine: {str(e)}")
+        return jsonify({'error': 'Failed to add machine', 'details': str(e)}), 500
+
+
+@app.route('/api/machines/<machine_id>', methods=['PUT'])
+@require_bearer_token
+def update_machine(machine_id):
+    """Update an existing machine configuration."""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'Request body is required'}), 400
+
+        success = config_manager.update_machine(machine_id, data)
+
+        if success:
+            logger.info(f"Updated machine: {machine_id}")
+            return jsonify({'success': True, 'message': f'Machine {machine_id} updated successfully'}), 200
+        else:
+            return jsonify({'error': f'Machine {machine_id} not found'}), 404
+
+    except Exception as e:
+        logger.error(f"Failed to update machine {machine_id}: {str(e)}")
+        return jsonify({'error': 'Failed to update machine', 'details': str(e)}), 500
+
+
+@app.route('/api/machines/<machine_id>', methods=['DELETE'])
+@require_bearer_token
+def delete_machine(machine_id):
+    """Delete a machine configuration."""
+    try:
+        success = config_manager.delete_machine(machine_id)
+
+        if success:
+            logger.info(f"Deleted machine: {machine_id}")
+            return jsonify({'success': True, 'message': f'Machine {machine_id} deleted successfully'}), 200
+        else:
+            return jsonify({'error': f'Machine {machine_id} not found'}), 404
+
+    except Exception as e:
+        logger.error(f"Failed to delete machine {machine_id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete machine', 'details': str(e)}), 500
+
+
+# Keep legacy /backup endpoint for backward compatibility (if needed)
+@app.route('/backup', methods=['POST'])
+@require_bearer_token
+def legacy_backup():
+    """
+    Legacy backup endpoint (for backward compatibility).
+    This endpoint is deprecated - use /api/backup instead.
+    """
+    logger.warning("Legacy /backup endpoint called - this is deprecated")
+    return jsonify({
+        'error': 'This endpoint is deprecated',
+        'message': 'Please use /api/backup with machine_id instead'
+    }), 410
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=7792)
+    logger.info("Starting Backup API...")
+    logger.info(f"Loaded {len(config_manager.get_all_machines())} machine configurations")
+
+    # Suppress Flask's default logging
+    log = logging.getLogger("werkzeug")
+    log.setLevel(logging.ERROR)
+
+    app.run(host='0.0.0.0', port=7792, debug=False)

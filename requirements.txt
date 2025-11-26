@@ -7,3 +7,5 @@ jsonify==0.5
 MarkupSafe==3.0.2
 python-dotenv==1.0.1
 Werkzeug==3.0.4
+paramiko==3.4.0
+PyYAML==6.0.1

@@ -1,2 +1,6 @@
 venv
+.venv
 .env
+__pycache__
+machines.yaml
+backup-api.log
