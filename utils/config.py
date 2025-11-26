@@ -1,11 +1,16 @@
 """Configuration manager for machines.yaml."""
 
-import yaml
 import os
 from typing import List, Dict, Optional
 import logging
+from ruamel.yaml import YAML
 
 logger = logging.getLogger(__name__)
+
+# Initialize ruamel.yaml for comment preservation
+yaml = YAML()
+yaml.preserve_quotes = True
+yaml.default_flow_style = False
 
 
 class ConfigManager:
@@ -36,7 +41,7 @@ class ConfigManager:
         """
         try:
             with open(self.config_path, 'r') as f:
-                config = yaml.safe_load(f) or {}
+                config = yaml.load(f) or {}
                 if 'machines' not in config:
                     config['machines'] = []
                 return config
@@ -53,7 +58,7 @@ class ConfigManager:
         """
         try:
             with open(self.config_path, 'w') as f:
-                yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+                yaml.dump(config, f)
             logger.info(f"Configuration saved to {self.config_path}")
         except Exception as e:
             logger.error(f"Failed to save config: {str(e)}")
@@ -130,7 +135,7 @@ class ConfigManager:
 
         Args:
             machine_id: ID of machine to update
-            machine_data: Updated machine configuration
+            machine_data: Updated machine configuration (partial updates supported)
 
         Returns:
             bool: True if successful, False otherwise
@@ -141,9 +146,10 @@ class ConfigManager:
 
             for i, machine in enumerate(machines):
                 if machine.get('id') == machine_id:
-                    # Preserve the ID
-                    machine_data['id'] = machine_id
-                    machines[i] = machine_data
+                    # Merge updates into existing machine config (preserves unspecified fields)
+                    machines[i].update(machine_data)
+                    # Ensure ID is never changed
+                    machines[i]['id'] = machine_id
                     config['machines'] = machines
                     self._save_config(config)
                     logger.info(f"Updated machine: {machine_id}")
