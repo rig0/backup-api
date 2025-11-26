@@ -1,9 +1,10 @@
 """SSH client wrapper for remote command execution and file transfers."""
 
-import paramiko
+import logging
 import os
 from typing import Optional, Tuple
-import logging
+
+import paramiko
 
 logger = logging.getLogger(__name__)
 
@@ -11,8 +12,14 @@ logger = logging.getLogger(__name__)
 class SSHClient:
     """Wrapper for paramiko SSH client with simplified interface."""
 
-    def __init__(self, host: str, port: int = 22, username: str = "root",
-                 key_path: Optional[str] = None, password: Optional[str] = None):
+    def __init__(
+        self,
+        host: str,
+        port: int = 22,
+        username: str = "root",
+        key_path: Optional[str] = None,
+        password: Optional[str] = None,
+    ):
         """
         Initialize SSH client.
 
@@ -44,18 +51,18 @@ class SSHClient:
 
             # Prepare connection parameters
             connect_params = {
-                'hostname': self.host,
-                'port': self.port,
-                'username': self.username,
-                'timeout': 30
+                "hostname": self.host,
+                "port": self.port,
+                "username": self.username,
+                "timeout": 30,
             }
 
             # Use SSH key if provided, otherwise use password
             if self.key_path and os.path.exists(self.key_path):
-                connect_params['key_filename'] = self.key_path
+                connect_params["key_filename"] = self.key_path
                 logger.info(f"Connecting to {self.host}:{self.port} with SSH key")
             elif self.password:
-                connect_params['password'] = self.password
+                connect_params["password"] = self.password
                 logger.info(f"Connecting to {self.host}:{self.port} with password")
             else:
                 logger.error("No authentication method provided (key or password)")
@@ -89,11 +96,11 @@ class SSHClient:
             stdin, stdout, stderr = self.client.exec_command(command, timeout=timeout)
 
             exit_code = stdout.channel.recv_exit_status()
-            stdout_str = stdout.read().decode('utf-8')
-            stderr_str = stderr.read().decode('utf-8')
+            stdout_str = stdout.read().decode("utf-8")
+            stderr_str = stderr.read().decode("utf-8")
 
             if exit_code == 0:
-                logger.info(f"Command succeeded")
+                logger.info("Command succeeded")
             else:
                 logger.error(f"Command failed with exit code {exit_code}: {stderr_str}")
 
@@ -210,6 +217,7 @@ class SSHClient:
     def _is_directory(self, attr) -> bool:
         """Check if paramiko file attribute represents a directory."""
         import stat
+
         return stat.S_ISDIR(attr.st_mode)
 
     def close(self):

@@ -1,10 +1,11 @@
 """Dockge backup module - handles backing up Dockge stacks."""
 
-import os
 import glob
 import logging
+import os
 from datetime import datetime
 from typing import Dict, Tuple
+
 from utils.ssh_client import SSHClient
 
 logger = logging.getLogger(__name__)
@@ -28,16 +29,16 @@ class DockgeBackup:
         Returns:
             Tuple of (success: bool, message: str)
         """
-        machine_id = machine_config['id']
+        machine_id = machine_config["id"]
         logger.info(f"Starting Dockge backup for machine: {machine_id}")
 
         # Initialize SSH client
         ssh_client = SSHClient(
-            host=machine_config['host'],
-            port=machine_config.get('ssh_port', 22),
-            username=machine_config['ssh_user'],
-            key_path=machine_config.get('ssh_key_path'),
-            password=machine_config.get('ssh_password')
+            host=machine_config["host"],
+            port=machine_config.get("ssh_port", 22),
+            username=machine_config["ssh_user"],
+            key_path=machine_config.get("ssh_key_path"),
+            password=machine_config.get("ssh_password"),
         )
 
         try:
@@ -49,7 +50,7 @@ class DockgeBackup:
             timestamp = datetime.now().strftime("%Y_%j_%H%M%S")
 
             # Get backup_dir from machine config or use default
-            backup_dir = machine_config.get('backup_dir', '/tmp/dockge-backup')
+            backup_dir = machine_config.get("backup_dir", "/tmp/dockge-backup")
 
             # Create backup directory on remote machine
             success, message = self._create_remote_backup_dir(ssh_client, backup_dir)
@@ -67,11 +68,13 @@ class DockgeBackup:
                 return False, message
 
             # Download backups to NAS
-            nas_directory = machine_config.get('nas_directory')
+            nas_directory = machine_config.get("nas_directory")
             if not nas_directory:
                 return False, "nas_directory not configured for machine"
 
-            success, message = self._download_backups(ssh_client, backup_dir, nas_directory)
+            success, message = self._download_backups(
+                ssh_client, backup_dir, nas_directory
+            )
             if not success:
                 return False, message
 
@@ -86,7 +89,7 @@ class DockgeBackup:
                 logger.warning(f"Cleanup warning: {message}")
 
             # Cleanup old backups on NAS
-            retention_days = machine_config.get('retention_days', 30)
+            retention_days = machine_config.get("retention_days", 30)
             self._cleanup_old_backups(nas_directory, keep=retention_days)
 
             logger.info(f"Dockge backup completed successfully for {machine_id}")
@@ -99,7 +102,9 @@ class DockgeBackup:
         finally:
             ssh_client.close()
 
-    def _create_remote_backup_dir(self, ssh_client: SSHClient, backup_dir: str) -> Tuple[bool, str]:
+    def _create_remote_backup_dir(
+        self, ssh_client: SSHClient, backup_dir: str
+    ) -> Tuple[bool, str]:
         """Create backup directory on remote machine."""
         logger.info(f"Creating backup directory: {backup_dir}")
         exit_code, stdout, stderr = ssh_client.exec_command(f'mkdir -p "{backup_dir}"')
@@ -109,7 +114,9 @@ class DockgeBackup:
         else:
             return False, f"Failed to create backup directory: {stderr}"
 
-    def _backup_stacks(self, ssh_client: SSHClient, backup_dir: str, timestamp: str) -> Tuple[bool, str]:
+    def _backup_stacks(
+        self, ssh_client: SSHClient, backup_dir: str, timestamp: str
+    ) -> Tuple[bool, str]:
         """Backup each stack in /opt/stacks."""
         logger.info(f"Backing up stacks from {self.stacks_dir}")
 
@@ -121,7 +128,7 @@ class DockgeBackup:
         if exit_code != 0:
             return False, f"Failed to list stacks: {stderr}"
 
-        stack_dirs = [line.strip() for line in stdout.strip().split('\n') if line.strip()]
+        stack_dirs = [line.strip() for line in stdout.strip().split("\n") if line.strip()]
 
         if not stack_dirs:
             logger.info("No stacks found to backup")
@@ -158,12 +165,16 @@ class DockgeBackup:
 
         return True, f"Backed up {len(stack_dirs)} stacks"
 
-    def _backup_dockge(self, ssh_client: SSHClient, backup_dir: str, timestamp: str) -> Tuple[bool, str]:
+    def _backup_dockge(
+        self, ssh_client: SSHClient, backup_dir: str, timestamp: str
+    ) -> Tuple[bool, str]:
         """Backup /opt/dockge directory."""
         logger.info(f"Backing up Dockge directory: {self.dockge_dir}")
 
         # Check if dockge directory exists
-        exit_code, stdout, stderr = ssh_client.exec_command(f'[ -d "{self.dockge_dir}" ] && echo "exists"')
+        exit_code, stdout, stderr = ssh_client.exec_command(
+            f'[ -d "{self.dockge_dir}" ] && echo "exists"'
+        )
 
         if exit_code != 0 or "exists" not in stdout:
             logger.warning(f"Dockge directory {self.dockge_dir} does not exist")
@@ -183,12 +194,14 @@ class DockgeBackup:
 
         if exit_code != 0:
             logger.error(f"Failed to backup Dockge: {stderr}")
-            return False, f"Failed to backup Dockge directory"
+            return False, "Failed to backup Dockge directory"
 
         logger.info("Successfully backed up Dockge directory")
         return True, "Backed up Dockge directory"
 
-    def _download_backups(self, ssh_client: SSHClient, remote_backup_dir: str, nas_directory: str) -> Tuple[bool, str]:
+    def _download_backups(
+        self, ssh_client: SSHClient, remote_backup_dir: str, nas_directory: str
+    ) -> Tuple[bool, str]:
         """Download backups from remote machine to NAS via SFTP."""
         logger.info(f"Downloading backups from {remote_backup_dir} to {nas_directory}")
 
@@ -202,7 +215,8 @@ class DockgeBackup:
             # Set permissions (770)
             try:
                 import subprocess
-                subprocess.run(['chmod', '-R', '770', nas_directory], check=True)
+
+                subprocess.run(["chmod", "-R", "770", nas_directory], check=True)
                 logger.info(f"Set permissions on {nas_directory}")
             except Exception as e:
                 logger.warning(f"Failed to set permissions: {str(e)}")
@@ -216,7 +230,9 @@ class DockgeBackup:
         logger.info(f"Verifying backups in {nas_directory}")
 
         # Find all .tar.gz files
-        backup_files = glob.glob(os.path.join(nas_directory, "**/*.tar.gz"), recursive=True)
+        backup_files = glob.glob(
+            os.path.join(nas_directory, "**/*.tar.gz"), recursive=True
+        )
 
         if not backup_files:
             return False, "No backup files found after download"
@@ -253,13 +269,15 @@ class DockgeBackup:
             nas_directory: Root directory containing backups
             keep: Number of backups to keep (default 30)
         """
-        logger.info(f"Cleaning up old backups in {nas_directory}, keeping {keep} most recent")
+        logger.info(
+            f"Cleaning up old backups in {nas_directory}, keeping {keep} most recent"
+        )
 
         try:
             # Walk through all subdirectories
             for root, dirs, files in os.walk(nas_directory):
                 # Find all .tar.gz files in this directory
-                backup_files = [f for f in files if f.endswith('.tar.gz')]
+                backup_files = [f for f in files if f.endswith(".tar.gz")]
 
                 if len(backup_files) <= keep:
                     continue
