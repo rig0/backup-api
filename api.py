@@ -132,14 +132,11 @@ def trigger_backup():
         backup_instance = backup_class()
         success, message = backup_instance.execute_backup(machine_config)
 
-        # Machine name for cleaner notification output
-        machine_name = data["machine_name"]
-
         if success:
-            logger.info(f"Backup successful for {machine_name}: {message}")
+            logger.info(f"Backup successful for {machine_id}: {message}")
             return jsonify({"success": True, "message": message}), 200
         else:
-            logger.error(f"Backup failed for {machine_name}: {message}")
+            logger.error(f"Backup failed for {machine_id}: {message}")
             return jsonify({"success": False, "error": message}), 500
 
     except Exception as e:
