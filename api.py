@@ -190,7 +190,7 @@ def add_machine():
         "ssh_user": "root",
         "ssh_key_path": "/root/.ssh/cloud-server-1",
         "backup_type": "dockge",
-        "retention_days": 30,
+        "retention_count": 30,
         "remote_tmp_dir": "/home/rambo/dev-stack",
         "local_backup_dir": "/mnt/nasty/Backups/Dockge/cloud-server-1"
     }

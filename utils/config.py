@@ -118,7 +118,7 @@ class ConfigManager:
 
             # Set defaults
             machine_data.setdefault("ssh_port", 22)
-            machine_data.setdefault("retention_days", 30)
+            machine_data.setdefault("retention_count", 30)
 
             # Add machine to config
             config = self._load_config()

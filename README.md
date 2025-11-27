@@ -92,7 +92,7 @@ machines:
     ssh_user: "root"
     ssh_key_path: "/home/user/.ssh/cloud-server-1"
     backup_type: "dockge"
-    retention_days: 90
+    retention_count: 90
     remote_tmp_dir: "/tmp/stack-backup"
     local_backup_dir: "/mnt/drive_0/backups/dockge/cloud-server-1"
 ```
@@ -111,7 +111,7 @@ curl -X POST http://localhost:7792/api/machines \
     "ssh_user": "root",
     "ssh_key_path": "/home/user/.ssh/cloud-server-1",
     "backup_type": "dockge",
-    "retention_days": 90,
+    "retention_count": 90,
     "remote_tmp_dir": "/tmp/stack-backup",
     "local_backup_dir": "/mnt/drive_0/backups/dockge/cloud-server-1"
   }'
@@ -194,7 +194,7 @@ curl http://localhost:7792/api/machines/cloud-server-1 \
 curl -X PUT http://localhost:7792/api/machines/cloud-server-1 \
   -H "Authorization: Bearer ${API_TOKEN}" \
   -H "Content-Type: application/json" \
-  -d '{"name": "Updated Name", "retention_days": 60}'
+  -d '{"name": "Updated Name", "retention_count": 60}'
 ```
 
 **Delete machine:**

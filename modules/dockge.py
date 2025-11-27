@@ -89,8 +89,8 @@ class DockgeBackup:
                 logger.warning(f"Cleanup warning: {message}")
 
             # Cleanup old backups on NAS
-            retention_days = machine_config.get("retention_days", 30)
-            self._cleanup_old_backups(local_backup_dir, keep=retention_days)
+            retention_count = machine_config.get("retention_count", 30)
+            self._cleanup_old_backups(local_backup_dir, keep=retention_count)
 
             logger.info(f"Dockge backup completed successfully for {machine_id}")
             return True, f"Backup completed successfully for {machine_id}"
