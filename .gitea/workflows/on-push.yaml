@@ -25,3 +25,4 @@ jobs:
 
           curl -X POST "${JENKINS_URL}/job/${JENKINS_JOB}/buildWithParameters?token=${JENKINS_TRIGGER_TOKEN}" \
             --user "${JENKINS_USER}:${JENKINS_TOKEN}"
+#
