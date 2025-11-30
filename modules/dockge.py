@@ -41,6 +41,10 @@ class DockgeBackup:
             password=machine_config.get("ssh_password"),
         )
 
+        # Get remote_tmp_dir from machine config or use default
+        remote_tmp_dir = machine_config.get("remote_tmp_dir", "/tmp/dockge-backup")
+        backup_created = False  # Track if we created backup directory
+
         try:
             # Connect to remote machine
             if not ssh_client.connect():
@@ -49,13 +53,11 @@ class DockgeBackup:
             # Create timestamp
             timestamp = datetime.now().strftime("%Y_%j_%H%M%S")
 
-            # Get remote_tmp_dir from machine config or use default
-            remote_tmp_dir = machine_config.get("remote_tmp_dir", "/tmp/dockge-backup")
-
             # Create backup directory on remote machine
             success, message = self._create_remote_backup_dir(ssh_client, remote_tmp_dir)
             if not success:
                 return False, message
+            backup_created = True  # Mark that we created the directory
 
             # Backup stacks
             success, message = self._backup_stacks(ssh_client, remote_tmp_dir, timestamp)
@@ -83,12 +85,7 @@ class DockgeBackup:
             if not success:
                 return False, message
 
-            # Cleanup remote machine
-            success, message = self._cleanup_remote(ssh_client, remote_tmp_dir)
-            if not success:
-                logger.warning(f"Cleanup warning: {message}")
-
-            # Cleanup old backups on NAS
+            # Cleanup old backups on NAS (only on success)
             retention_count = machine_config.get("retention_count", 30)
             self._cleanup_old_backups(local_backup_dir, keep=retention_count)
 
@@ -100,6 +97,20 @@ class DockgeBackup:
             return False, f"Backup failed: {str(e)}"
 
         finally:
+            # Always cleanup remote tmp directory if we created it
+            if backup_created:
+                try:
+                    success, message = self._cleanup_remote(ssh_client, remote_tmp_dir)
+                    if success:
+                        logger.info(f"Cleaned up remote tmp directory: {remote_tmp_dir}")
+                    else:
+                        logger.warning(
+                            f"Failed to cleanup remote tmp directory: {message}"
+                        )
+                except Exception as cleanup_error:
+                    logger.error(f"Error during remote cleanup: {str(cleanup_error)}")
+
+            # Always close SSH connection
             ssh_client.close()
 
     def _create_remote_backup_dir(
