@@ -7,6 +7,8 @@
 ![n8n](https://img.shields.io/badge/n8n-EA4B71?logo=n8n&logoColor=white)
 
 ![Release](https://img.shields.io/github/v/release/rig0/backup-api?labelColor=222&color=80ff63)
+![Stability](https://img.shields.io/badge/stability-stable-80ff63?labelColor=222)
+![Maintained](https://img.shields.io/badge/maintained-yes-80ff63?labelColor=222)
 ![GitHub last commit](https://img.shields.io/github/last-commit/rig0/backup-api?labelColor=222&color=80ff63)
 
 
