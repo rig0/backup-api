@@ -2,11 +2,13 @@
 
 # Backup-API
 
-![GitHub last commit](https://img.shields.io/github/last-commit/rig0/backup-api?style=for-the-badge)
-![Release](https://img.shields.io/github/v/release/rig0/backup-api?style=for-the-badge)
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![REST API](https://img.shields.io/badge/REST-API-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![n8n](https://img.shields.io/badge/n8n-EA4B71?style=for-the-badge&logo=n8n&logoColor=white)
+![Python](https://img.shields.io/badge/Python%203.11+-3978b5?logo=python&logoColor=white)
+![Flask API](https://img.shields.io/badge/Flask%20API-6eb6da?logo=flask&logoColor=white)
+![n8n](https://img.shields.io/badge/n8n-EA4B71?logo=n8n&logoColor=white)
+
+![Release](https://img.shields.io/github/v/release/rig0/backup-api?labelColor=222&color=80ff63)
+![GitHub last commit](https://img.shields.io/github/last-commit/rig0/backup-api?labelColor=222&color=80ff63)
+
 
 **A pull-based backup system that runs on your NAS and initiates SSH connections to remote machines to perform backups. Designed for integration with n8n for centralized scheduling and monitoring.**
 
