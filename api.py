@@ -132,6 +132,7 @@ def trigger_backup():
         backup_instance = backup_class()
         success, message = backup_instance.execute_backup(machine_config)
 
+        # To do: Update this to report number of stacks backed up
         if success:
             logger.info(f"Backup successful for {machine_id}: {message}")
             return jsonify({"success": True, "message": message}), 200
