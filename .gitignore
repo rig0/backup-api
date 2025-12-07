@@ -4,3 +4,4 @@ venv
 __pycache__
 machines.yaml
 backup-api.log
+tests

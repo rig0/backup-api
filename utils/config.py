@@ -93,6 +93,32 @@ class ConfigManager:
                 return machine
         return None
 
+    def _sanitize_string_values(self, data: Dict) -> Dict:
+        """
+        Strip leading/trailing quotes from string values.
+
+        Args:
+            data: Dictionary with potentially quoted string values
+
+        Returns:
+            Dictionary with sanitized string values
+        """
+        sanitized = {}
+        for key, value in data.items():
+            if isinstance(value, str):
+                # Strip leading/trailing single or double quotes
+                stripped = value.strip()
+                if (stripped.startswith('"') and stripped.endswith('"')) or (
+                    stripped.startswith("'") and stripped.endswith("'")
+                ):
+                    sanitized[key] = stripped[1:-1]
+                else:
+                    sanitized[key] = value
+            else:
+                # Preserve non-string values (numbers, booleans, etc.)
+                sanitized[key] = value
+        return sanitized
+
     def add_machine(self, machine_data: Dict) -> bool:
         """
         Add a new machine configuration.
@@ -104,6 +130,9 @@ class ConfigManager:
             bool: True if successful, False otherwise
         """
         try:
+            # Sanitize string values (strip quotes)
+            machine_data = self._sanitize_string_values(machine_data)
+
             # Validate required fields
             required_fields = ["id", "name", "host", "ssh_user", "backup_type"]
             for field in required_fields:
@@ -144,6 +173,9 @@ class ConfigManager:
             bool: True if successful, False otherwise
         """
         try:
+            # Sanitize string values (strip quotes)
+            machine_data = self._sanitize_string_values(machine_data)
+
             config = self._load_config()
             machines = config.get("machines", [])
 
