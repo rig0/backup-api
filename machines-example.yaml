@@ -1,13 +1,13 @@
 machines: []
 # Example machine configuration:
 # machines:
-#   - id: "cloud-server-1"
-#     name: "Cloud Server 1"
-#     host: "203.0.113.45"
+#   - id: cloud-server-1
+#     name: Cloud Server 1
+#     host: 203.0.113.45
 #     ssh_port: 22
-#     ssh_user: "root"
-#     ssh_key_path: "/home/user/.ssh/cloud-server-1"
-#     backup_type: "dockge"
+#     ssh_user: root
+#     ssh_key_path: /home/user/.ssh/cloud-server-1
+#     backup_type: dockge
 #     retention_count: 90
-#     remote_tmp_dir: "/tmp/stack-backup"
-#     local_backup_dir: "/mnt/drive_0/backups/dockge/cloud-server-1"
+#     remote_tmp_dir: /tmp/stack-backup
+#     local_backup_dir: /mnt/drive_0/backups/dockge/cloud-server-1
