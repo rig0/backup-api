@@ -1,0 +1,30 @@
+services:
+  backup-api:
+    build: .
+    container_name: backup-api
+    ports:
+      - "7792:7792"
+    volumes:
+      # Configuration file
+      - ./machines.yaml:/app/machines.yaml:ro
+
+      # Environment variables
+      - ./.env:/app/.env:ro
+
+      # SSH keys directory (adjust path as needed)
+      - ~/.ssh:/root/.ssh:ro
+
+      # Backup destination directory (adjust path as needed)
+      # - /mnt/nasty/Backups:/mnt/nasty/Backups
+
+      # Logs
+      - ./logs:/app/logs
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7792/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

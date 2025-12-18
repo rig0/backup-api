@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Git
+.git/
+.gitignore
+.gitea/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+
+# Test files
+tests/
+
+# Documentation
+README.md
+
+# Config files (will be mounted)
+machines.yaml
+
+# Scripts
+start-api.sh
+update.sh
+
+# Other
+.pre-commit-config.yaml
+.flake8
+pyproject.toml
+VERSION
+machines-example.yaml
+backup-api.log
