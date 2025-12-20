@@ -15,7 +15,7 @@ services:
       - ~/.ssh:/root/.ssh:ro
 
       # Backup destination directory (adjust path as needed)
-      # - /mnt/nasty/Backups:/mnt/nasty/Backups
+      # - /mnt/Backups:/mnt/Backups
 
       # Logs
       - ./logs:/app/logs
