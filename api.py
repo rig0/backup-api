@@ -82,7 +82,18 @@ def require_bearer_token(f):
 @app.route("/health", methods=["GET"])
 def health():
     """Health check endpoint (no auth required)."""
-    return jsonify({"status": "healthy", "service": "backup-api"}), 200
+    # Read version from VERSION file
+    version = "unknown"
+    try:
+        with open("VERSION", "r") as f:
+            version = f.read().strip()
+    except Exception:
+        pass
+
+    return (
+        jsonify({"status": "healthy", "service": "backup-api", "version": version}),
+        200,
+    )
 
 
 @app.route("/api/backup", methods=["POST"])
