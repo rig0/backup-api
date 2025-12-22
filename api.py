@@ -4,6 +4,7 @@ import importlib
 import logging
 import os
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
@@ -14,6 +15,11 @@ from utils.config import ConfigManager
 load_dotenv()
 
 # Logging Configuration
+# Setup log directory and file path
+BASE_DIR = Path(__file__).parent.parent
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "backup-api.log"
 
 # Create logger
 logger = logging.getLogger()
@@ -32,7 +38,7 @@ logger.addHandler(console_handler)
 
 # Rotating file handler
 file_handler = RotatingFileHandler(
-    "backup-api.log",
+    LOG_FILE,
     maxBytes=3 * 1024 * 1024,  # 3 MB per file
     backupCount=3,  # Keep 3 backups
 )
