@@ -16,7 +16,7 @@ load_dotenv()
 
 # Logging Configuration
 # Setup log directory and file path
-BASE_DIR = Path(__file__)
+BASE_DIR = Path(__file__).parent
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 LOG_FILE = LOG_DIR / "backup-api.log"
